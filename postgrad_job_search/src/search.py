@@ -8,6 +8,7 @@ from pretty_html_table import build_table
 from dotenv import load_dotenv
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from bs4 import BeautifulSoup
 
 
 def data_handle():
@@ -27,44 +28,32 @@ def data_handle():
 
 
 def launch(url_list, keywords):
-    """
-    Launch browser and run keywords on the list of urls
-
-    Inputs:
-    	    url_list (lst): List of URLs
-            keywords (lst): List of keywords
-
-    Returns: idx_list (lst): List of indices that include the keywords
-    """
-    # Set up Chrome WebDriver options 
     options = webdriver.ChromeOptions()
-    options.add_argument('--headless')  
-
-    # Create a WebDriver instance 
+    options.add_argument('--headless')
     driver = webdriver.Chrome(options=options)
     idx_list = []
+    job_titles = []  # List to store job titles
 
     for idx, url in enumerate(url_list):
-        print(f"going to this url: {url}")
-        # time.sleep(30)
         driver.implicitly_wait(2)
         driver.get(url)
+        soup = BeautifulSoup(driver.page_source, 'html.parser')
 
+        # Example: Find all <h2> tags containing job titles
+        # You might need to adjust this selector based on the site's structure
+        for job in soup.find_all('h2', class_='job-title-class'):  # Adjust class name as necessary
+            job_title = job.text.strip()
+            for key in keywords:
+                if key.lower() in job_title.lower():
+                    print(f"Keyword: {key} found in job title: {job_title}")
+                    idx_list.append(idx)
+                    job_titles.append(job_title)
+                    break  # Break if keyword is found to avoid duplicates
+        if not job_titles:  # If no job titles found with the keywords
+            print("No keywords found in job titles!")
 
-        for key in keywords:
-            search_text = key
-            get_source = driver.page_source
-            if search_text not in get_source:
-                print("No keywords found!")
-                continue
-            else:
-                idx_list.append(idx)
-                print(f"Keyword: {key} found!")
-                break
-		    
-    # quit the driver before returning the list of indices
     driver.quit()
-    return idx_list
+    return idx_list, job_titles
 
 
 def email_needed(idx_list):
