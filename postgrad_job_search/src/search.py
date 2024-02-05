@@ -32,27 +32,41 @@ def launch(url_list, keywords):
     options.add_argument('--headless')
     driver = webdriver.Chrome(options=options)
     idx_list = []
-    job_titles = []  # List to store job titles
+    job_titles = []  
 
     for idx, url in enumerate(url_list):
         driver.implicitly_wait(2)
         driver.get(url)
         soup = BeautifulSoup(driver.page_source, 'html.parser')
-
-        # Example: Find all <h2> tags containing job titles
-        # You might need to adjust this selector based on the site's structure
-        for job in soup.find_all('h2', class_='job-title-class'):  # Adjust class name as necessary
-            job_title = job.text.strip()
-            for key in keywords:
-                if key.lower() in job_title.lower():
-                    print(f"Keyword: {key} found in job title: {job_title}")
-                    idx_list.append(idx)
-                    job_titles.append(job_title)
-                    break  # Break if keyword is found to avoid duplicates
-        if not job_titles:  # If no job titles found with the keywords
-            print("No keywords found in job titles!")
+	
+	 tags_to_check = [
+	    ('h1', 'job-title'),  # Common for main job titles
+	    ('h2', 'job-title'),  # Secondary titles or section headers
+	    ('h3', 'job-title'),  # Tertiary titles, often used for job listings
+	    ('div', 'job-listing'),  # Div containers for job details
+	    ('div', 'opening'),  # Another common class for job openings
+	    ('a', 'apply-now'),  # Links to application pages
+	    ('li', 'position'),  # List items for individual job positions
+	    ('span', 'location'),  # Span tags for location details
+	    ('p', 'description'),  # Paragraphs for brief job descriptions
+	    ('ul', 'listings'),  # Unordered lists containing job listings
+	    ('a', 'job-link'),  # Direct links to job descriptions
+	    ('div', 'job-description'),  # Div containers for detailed job descriptions]
+		 
+        for tag, class_name in tags_to_check:
+    		for job in soup.find_all(tag, class_=class_name):
+	            job_title = job.text.strip()
+	            for key in keywords:
+	                if key.lower() in job_title.lower():
+	                    print(f"Keyword: {key} found in job title: {job_title}")
+	                    idx_list.append(idx)
+	                    job_titles.append(job_title)
+	                    break  # Break if keyword is found to avoid duplicates
+	        if not job_titles:  # If no job titles found with the keywords
+	            print("No keywords found in job titles!")
 
     driver.quit()
+	
     return idx_list, job_titles
 
 
