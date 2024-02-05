@@ -1,0 +1,36 @@
+name: Send Daily Email
+
+on:
+  schedule:
+    - cron: '0 18 * * *'  # Schedule to run daily at 9 AM CST
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      EMAIL_PASSWORD: "${{ secrets.EMAIL_PASSWORD }}"
+      R_EMAIL_ADDRESS: "${{ secrets.R_EMAIL_ADDRESS }}"
+      S_EMAIL_ADDRESS: "${{ secrets.S_EMAIL_ADDRESS }}"
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+      - name: Cache Python packages
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: setup-chromedriver
+        uses: nanasess/setup-chromedriver@v2.2.0
+      - name: Change Directory & Run Python script
+        working-directory: postgrad_job_search/src/
+        run: |
+          python search.py
