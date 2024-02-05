@@ -31,44 +31,57 @@ def launch(url_list, keywords):
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     driver = webdriver.Chrome(options=options)
-    idx_list = []
-    job_titles = []  
+    job_listings = []
 
-    for idx, url in enumerate(url_list):
-        driver.implicitly_wait(2)
+    tags_to_check = [
+        ('h1', 'job-title'),
+        ('h2', 'job-title'),
+        ('h3', 'job-title'),
+        ('div', 'job-listing'),
+        ('div', 'opening'),
+        ('a', 'apply-now'),
+        ('li', 'position'),
+        ('span', 'location'),
+        ('p', 'description'),
+        ('ul', 'listings'),
+        ('a', 'job-link'),
+        ('div', 'job-description'),
+    ]
+
+    for url in url_list:
         driver.get(url)
+        time.sleep(2)  # Wait for the page to load
         soup = BeautifulSoup(driver.page_source, 'html.parser')
-	
-	 tags_to_check = [
-	    ('h1', 'job-title'),  # Common for main job titles
-	    ('h2', 'job-title'),  # Secondary titles or section headers
-	    ('h3', 'job-title'),  # Tertiary titles, often used for job listings
-	    ('div', 'job-listing'),  # Div containers for job details
-	    ('div', 'opening'),  # Another common class for job openings
-	    ('a', 'apply-now'),  # Links to application pages
-	    ('li', 'position'),  # List items for individual job positions
-	    ('span', 'location'),  # Span tags for location details
-	    ('p', 'description'),  # Paragraphs for brief job descriptions
-	    ('ul', 'listings'),  # Unordered lists containing job listings
-	    ('a', 'job-link'),  # Direct links to job descriptions
-	    ('div', 'job-description'),  # Div containers for detailed job descriptions]
-		 
+
+        found = False
         for tag, class_name in tags_to_check:
-    		for job in soup.find_all(tag, class_=class_name):
-	            job_title = job.text.strip()
-	            for key in keywords:
-	                if key.lower() in job_title.lower():
-	                    print(f"Keyword: {key} found in job title: {job_title}")
-	                    idx_list.append(idx)
-	                    job_titles.append(job_title)
-	                    break  # Break if keyword is found to avoid duplicates
-	        if not job_titles:  # If no job titles found with the keywords
-	            print("No keywords found in job titles!")
+            for element in soup.find_all(tag, class_=class_name):
+                # Initialize job info dictionary
+                job_info = {'title': '', 'location': '', 'description': '', 'apply_link': ''}
+                if tag == 'a' and element.has_attr('href'):
+                    job_info['apply_link'] = element['href']
+                job_info['title'] = element.text.strip()
+                
+                # Check if any keyword is in the job title
+                if any(keyword.lower() in job_info['title'].lower() for keyword in keywords):
+                    found = True
+                    # Attempt to find location and description if present
+                    # This part needs customization based on the website's structure
+                    location_element = element.find_next_sibling('span', class_='location')
+                    if location_element:
+                        job_info['location'] = location_element.text.strip()
+                    description_element = element.find_next_sibling('p', class_='description')
+                    if description_element:
+                        job_info['description'] = description_element.text.strip()
+                    
+                    job_listings.append(job_info)
+                    break  # Optional: break if you only need one job per tag/class combination
+
+        if not found:
+            print(f"No matching jobs found in {url}")
 
     driver.quit()
-	
-    return idx_list, job_titles
-
+    return job_listings
 
 def email_needed(idx_list):
     """
