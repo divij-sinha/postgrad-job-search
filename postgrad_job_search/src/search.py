@@ -34,42 +34,26 @@ def launch(url_list, keywords):
     driver = webdriver.Chrome(options=options)
     all_job_listings = []
 
-    tags_to_check = [
-        ('h1', 'job-title'),
-        ('h2', 'job-title'),
-        ('h3', 'job-title'),
-        ('div', 'job-listing'),
-        ('div', 'opening'),
-        ('a', 'apply-now'),
-        ('li', 'position'),
-        ('span', 'location'),
-        ('p', 'description'),
-        ('ul', 'listings'),
-        ('a', 'job-link'),
-        ('div', 'job-description'),
-    ]
-
-    for url in url_list:
+    # Assuming the organization's name is passed in the URL list
+    # as a tuple (organization_name, url)
+    for organization_name, url in url_list:
         driver.get(url)
         time.sleep(2)  # Wait for the page to load
         soup = BeautifulSoup(driver.page_source, 'html.parser')
 
-        for tag, class_name in tags_to_check:
-            for element in soup.find_all(tag, class_=class_name):
-                job_info = {'title': '', 'location': '', 'description': '', 'apply_link': ''}
-                if tag == 'a' and element.has_attr('href'):
-                    job_info['apply_link'] = element['href']
-                job_info['title'] = element.text.strip()
-                if any(keyword.lower() in job_info['title'].lower() for keyword in keywords):
-                    # Attempt to find location and description if present
-                    location_element = element.find_next_sibling('span', class_='location')
-                    if location_element:
-                        job_info['location'] = location_element.text.strip()
-                    description_element = element.find_next_sibling('p', class_='description')
-                    if description_element:
-                        job_info['description'] = description_element.text.strip()
+        for element in soup.find_all('a', href=True):  # Look for all 'a' tags with href attribute
+            job_title = element.text.strip()
+            if any(keyword.lower() in job_title.lower() for keyword in keywords):
+                job_link = element['href']
+                if not job_link.startswith("http"):
+                    job_link = url + job_link  # Ensure the job link is absolute
 
-                    all_job_listings.append(job_info)
+                job_info = {
+                    'organization': organization_name,
+                    'title': job_title,
+                    'apply_link': job_link
+                }
+                all_job_listings.append(job_info)
 
     driver.quit()
     return all_job_listings
