@@ -81,6 +81,7 @@ def launch(url_list, keywords):
             print(f"No matching jobs found in {url}")
 
     driver.quit()
+    print(job_listings)
     return job_listings
 
 def email_needed(idx_list):
