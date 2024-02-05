@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from bs4 import BeautifulSoup
-import time 
+import time
 
 
 def data_handle():
@@ -24,7 +24,7 @@ def data_handle():
     df = pd.read_excel("Companies.xlsx")
     url_list = df["URL"].values.tolist()
     df_copy = df.drop(df.columns[[1, 4]], axis=1)
-	
+
     return df_copy, url_list
 
 
@@ -68,38 +68,11 @@ def launch(url_list, keywords):
                     description_element = element.find_next_sibling('p', class_='description')
                     if description_element:
                         job_info['description'] = description_element.text.strip()
-                    
+
                     all_job_listings.append(job_info)
 
     driver.quit()
     return all_job_listings
-
-def email_needed(idx_list):
-    """
-    Checks if an update email is needed or not
-
-    Inputs: idx_list (lst) list of indices
-
-    Returns: boolean 
-    """
-    if len(idx_list) == 0:
-        return False
-    return True
-
-
-def parse_index_lst(idx_list, df):
-    """
-    Parses the index list to create a dataframe of companies to check in an email
-
-    Inputs: 
-    	    idx_list (lst): List of indices
-            df (Pandas DataFrame): Original DataFrame of companies and information
-
-    Returns: notification_df (Pandas DataFrame): DataFrame of companies with current job openings matching the keywords
-    """
-    notification_df = df.iloc[idx_list]
-
-    return notification_df
 
 
 def email(job_listings):
@@ -115,16 +88,8 @@ def email(job_listings):
     msg["To"] = receiver_email
     msg["Subject"] = f"New Job Alert — {today}"
 
-    # Build HTML for job listings
-    job_html = ""
-    for job in job_listings:
-        job_html += f"""
-            <h3>{job['title']}</h3>
-            <p><strong>Location:</strong> {job.get('location', 'N/A')}</p>
-            <p><strong>Description:</strong> {job.get('description', 'N/A')}</p>
-            <p><a href="{job['apply_link']}">Apply Now</a></p>
-            <hr>
-        """
+    # Prepare job listings as a table
+    job_html = build_table(job_listings, "blue_dark")
 
     html = f"""
     <html>
@@ -152,7 +117,6 @@ def email(job_listings):
         print(f"Email could not be sent. Error: {e}")
 
 
-
 def main():
     """
     Runs the script
@@ -163,16 +127,17 @@ def main():
         "Associate",
         "Data Engineer",
         "Statistian",
-	"Data Journalism",
-	"Data Journalist",
+        "Data Journalism",
+        "Data Journalist",
         "Survey",
     ]
     df, url_list = data_handle()
-    idx_list = launch(url_list, keywords)
+    job_listings = launch(url_list, keywords)
 
-    if email_needed(idx_list) is True:
-        notification_df = parse_index_lst(idx_list, df)
-        print(notification_df)
-        email(notification_df)
+    if job_listings:
+        email(job_listings)
+        print("Email sent with job listings")
+
 
 main()
+
