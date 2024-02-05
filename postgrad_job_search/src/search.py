@@ -111,56 +111,55 @@ def parse_index_lst(idx_list, df):
     return notification_df
 
 
-def email(notification_df):
-    """
-    Sends an email notification
-
-    Inputs: notification_df (Pandas DataFrame): DataFrame of companies with current job openings matching the keywords
-
-    Returns: None
-    """
-
+def email(job_listings):
     receiver_email = os.environ.get("R_EMAIL_ADDRESS")
     sender_email = os.environ.get("S_EMAIL_ADDRESS")
     password = os.environ.get("EMAIL_PASSWORD")
     smtp_server = "smtp.gmail.com"
     smtp_port = 587
-    # load and set environment variables and other necessary variables
 
     msg = MIMEMultipart()
     today = datetime.date.today().strftime("%Y-%m-%d")
-
-    # Set the email parameters
     msg["From"] = sender_email
     msg["To"] = receiver_email
     msg["Subject"] = f"New Job Alert — {today}"
 
+    # Build HTML for job listings
+    job_html = ""
+    for job in job_listings:
+        job_html += f"""
+            <h3>{job['title']}</h3>
+            <p><strong>Location:</strong> {job.get('location', 'N/A')}</p>
+            <p><strong>Description:</strong> {job.get('description', 'N/A')}</p>
+            <p><a href="{job['apply_link']}">Apply Now</a></p>
+            <hr>
+        """
+
     html = f"""
-		<html>
-			<body>
-				<h1>Daily Post Grad Job Search Notification</h1>
-				<p>Here are the results for companies with positions open now matching your keywords</p>
-				{build_table(notification_df, 'blue_dark')}
-			</body>
-		</html>
-		"""
-	
+    <html>
+        <body>
+            <h1>Daily Job Search Notification</h1>
+            <p>Here are the jobs matching your keywords:</p>
+            {job_html}
+        </body>
+    </html>
+    """
+
     msg.attach(MIMEText(html, "html"))
 
-    # create the connection and send the email below
+    # SMTP setup and send email
     context = ssl.create_default_context()
     try:
-        server = smtplib.SMTP(smtp_server, smtp_port)
-        server.ehlo() 
-        server.starttls(context=context)  
-        server.ehlo() 
-        server.login(sender_email, password)
-
-        server.sendmail(sender_email, receiver_email, msg.as_string())
-
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.ehlo()
+            server.starttls(context=context)
+            server.ehlo()
+            server.login(sender_email, password)
+            server.sendmail(sender_email, receiver_email, msg.as_string())
+        print("Email sent successfully!")
     except Exception as e:
-        # print error
-        print(e)
+        print(f"Email could not be sent. Error: {e}")
+
 
 
 def main():
