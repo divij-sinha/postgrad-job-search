@@ -88,8 +88,11 @@ def email(job_listings):
     msg["To"] = receiver_email
     msg["Subject"] = f"New Job Alert — {today}"
 
+    # Convert job_listings to a Pandas DataFrame
+    job_df = pd.DataFrame(job_listings)
+
     # Prepare job listings as a table
-    job_html = build_table(job_listings, "blue_dark")
+    job_html = build_table(job_df, "blue_dark")
 
     html = f"""
     <html>
