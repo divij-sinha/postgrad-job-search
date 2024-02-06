@@ -44,8 +44,8 @@ def launch(url_list, keywords, json_file='job_listings.json'):
             print(response.status_code)
             if response.status_code == 200:
                 soup = BeautifulSoup(response.content, 'html.parser')
+                print(soup.text)
                 for element in soup.find_all('a', href=True):
-                    print(element)
                     job_title = element.text.strip()
                     if filter_job_title(job_title) and any(keyword.lower() in job_title.lower() for keyword in keywords):
                         job_link = element['href']
