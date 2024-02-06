@@ -10,6 +10,7 @@ from email.mime.text import MIMEText
 from bs4 import BeautifulSoup
 import logging
 import json
+from selenium import webdriver
 
 load_dotenv()
 
