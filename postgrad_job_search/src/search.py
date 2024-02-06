@@ -14,23 +14,13 @@ from selenium import webdriver
 
 load_dotenv()
 
-def data_handle():
-    """
-    Formats the source data from Companies.xlsx
-    """
-    try:
-        df = pd.read_excel("Companies.xlsx")
-        url_list =  df["URL"].values.tolist()
-        return url_list
-    except Exception as e:
-        logging.error(f"Error reading Companies.xlsx: {e}")
-        return []
-
 def filter_job_title(job_title):
     exclude_keywords = ['intern', 'student']
     return not any(keyword.lower() in job_title.lower() for keyword in exclude_keywords)
 
 def launch(url_list, keywords, json_file='job_listings.json'):
+    df = pd.read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vSQC3Io4qy97NqcUbSjMjcaC08A4GASQeK8CyQnqodXQhkEVb7m4ve-ofsdO_Frz6RAZPCBzeVrXV4r/pub?output=csv")
+    
     stored_jobs = load_job_listings(json_file)
     stored_links = {job['apply_link'] for job in stored_jobs}  # Set for fast lookup
     new_job_listings = []
@@ -41,19 +31,17 @@ def launch(url_list, keywords, json_file='job_listings.json'):
     # Create a WebDriver instance 
     driver = webdriver.Chrome(options=options)
 
-    for idx, url in enumerate(url_list):
+    for row in df.iterrows():
+        url = row['URL']
+        organization_name = row['Company']
+        sector = row['Sector']
         print(f"going to this url: {url}")
         # time.sleep(30)
         driver.implicitly_wait(2)
         driver.get(url)
-
-    for idx, url in enumerate(url_list):
-        organization_name = df["Company"][idx]
-        sector = df["Sector"][idx]
         try:
             print(url)
             driver.implicitly_wait(2)
-            driver.get(str(url))
             soup = BeautifulSoup(driver.page_source, 'html.parser')
             print(soup.text)
             for element in soup.find_all('a', href=True):
