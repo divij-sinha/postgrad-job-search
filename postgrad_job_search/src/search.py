@@ -10,13 +10,8 @@ from dotenv import load_dotenv
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from bs4 import BeautifulSoup
-import time
-import logging
+import logger
 
-# Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-load_dotenv()  # Load environment variables
 
 def data_handle():
     """
@@ -24,46 +19,49 @@ def data_handle():
     """
     try:
         df = pd.read_excel("Companies.xlsx")
-        url_list = [(row['Name'], row['URL']) for index, row in df.iterrows()]
+        url_list = [[row['Name'], row['URL'], row['Sector']] for index, row in df.iterrows()]
         return url_list
     except Exception as e:
         logging.error(f"Error reading Companies.xlsx: {e}")
         return []
 
 def launch(url_list, keywords):
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    try:
-        driver = webdriver.Chrome(options=options)
-    except WebDriverException as e:
-        logging.error(f"Error initializing WebDriver: {e}")
-        return []
-
     all_job_listings = []
+    seen_links = set()  # Set to store seen job links
 
-    for organization_name, url in url_list:
+    for comp in url_list:
+        organization_name = comp[0]
+        url = comp[1]
+        sector = comp[2]
         try:
-            driver.get(url)
-            time.sleep(2)  # Wait for the page to load
-            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            # Fetch the page content
+            response = requests.get(url)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.content, 'html.parser')
 
-            for element in soup.find_all('a', href=True):
-                job_title = element.text.strip()
-                if any(keyword.lower() in job_title.lower() for keyword in keywords):
-                    job_link = element['href']
-                    if not job_link.startswith("http"):
-                        job_link = url + job_link
+                for element in soup.find_all('a', href=True):
+                    job_title = element.text.strip()
+                    if any(keyword.lower() in job_title.lower() for keyword in keywords):
+                        job_link = element['href']
+                        if not job_link.startswith("http"):
+                            job_link = url + job_link
 
-                    job_info = {
-                        'organization': organization_name,
-                        'title': job_title,
-                        'apply_link': job_link
-                    }
-                    all_job_listings.append(job_info)
+                        # deduplicate
+                        if job_link not in seen_links:
+                            seen_links.add(job_link)  # Mark this job link as seen
+
+                            job_info = {
+                                'organization': organization_name,
+                                'title': job_title,
+                                'apply_link': job_link,
+                                'sector': 
+                            }
+                            all_job_listings.append(job_info)
+            else:
+                logging.error(f"Failed to fetch {url}: Status code {response.status_code}")
         except Exception as e:
             logging.error(f"Error scraping {url}: {e}")
 
-    driver.quit()
     return all_job_listings
 
 def email(job_listings):
@@ -112,12 +110,12 @@ def main():
     keywords = [
         "Data Analyst",
         "Data Scientist",
-        "Associate",
-        "Data Engineer",
         "Statistician",
-        "Data Journalism",
-        "Data Journalist",
-        "Survey",
+        "Research Analyst",
+        "Research",
+        "Policy",
+        "Data Science",
+        "Data"
     ]
     url_list = data_handle()
     if not url_list:
@@ -133,8 +131,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
 
 main()
 
