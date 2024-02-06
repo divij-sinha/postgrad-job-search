@@ -44,7 +44,7 @@ def launch(url_list, keywords, json_file='job_listings.json'):
                 soup = BeautifulSoup(response.content, 'html.parser')
 
                 for element in soup.find_all('a', href=True):
-                    if "jobs.lever.co/nava" in element.href:
+                    if "jobs.lever.co/nava" in element.get("href"):
                         print("!!", element.text.strip())
                     job_title = element.text.strip()
                     if filter_job_title(job_title) and any(keyword.lower() in job_title.lower() for keyword in keywords):
