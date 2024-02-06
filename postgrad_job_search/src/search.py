@@ -15,7 +15,7 @@ from selenium import webdriver
 load_dotenv()
 
 def filter_job_title(job_title):
-    exclude_keywords = ['intern', 'student']
+    exclude_keywords = ['internship', 'student']
     return not any(keyword.lower() in job_title.lower() for keyword in exclude_keywords)
 
 def launch(keywords, json_file='job_listings.json'):
