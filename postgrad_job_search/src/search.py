@@ -20,7 +20,7 @@ def data_handle():
     """
     try:
         df = pd.read_excel("Companies.xlsx")
-        url_list = [[row['Company'], row['URL'], row['Sector']] for index, row in df.iterrows()]
+        url_list =  df["URL"].values.tolist()
         return url_list
     except Exception as e:
         logging.error(f"Error reading Companies.xlsx: {e}")
@@ -47,14 +47,13 @@ def launch(url_list, keywords, json_file='job_listings.json'):
         driver.implicitly_wait(2)
         driver.get(url)
 
-    for comp in url_list:
-        organization_name = comp[0]
-        url = comp[1]
-        sector = comp[2]
+    for idx, url in enumerate(url_list):
+        organization_name = df["Company"][idx]
+        sector = df["Sector"][idx]
         try:
             print(url)
             driver.implicitly_wait(2)
-            driver.get(url)
+            driver.get(str(url))
             soup = BeautifulSoup(driver.page_source, 'html.parser')
             print(soup.text)
             for element in soup.find_all('a', href=True):
