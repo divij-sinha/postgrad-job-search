@@ -16,7 +16,7 @@ load_dotenv()
 
 def filter_job_title(job_title):
     exclude_keywords = ['internship', 'student']
-    return not any(keyword.lower() in job_title.lower() for keyword in exclude_keywords)
+    return not any(keyword.lower() in job_title.lower() for keyword.lower() in exclude_keywords)
 
 def launch(keywords, json_file='job_listings.json'):
     df = pd.read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vSQC3Io4qy97NqcUbSjMjcaC08A4GASQeK8CyQnqodXQhkEVb7m4ve-ofsdO_Frz6RAZPCBzeVrXV4r/pub?output=csv")
@@ -131,16 +131,16 @@ def save_job_listings(file_path, job_listings):
 
 def main():
     keywords = [
-        "data analyst",
-        "data scientist",
-        "statistician",
-        "research analyst",
-        "research associate",
-        "policy analyst",
-        "data engineer",
-        "product manager",
-        "product analyst",
-        "project manager",
+        "Data Analyst",
+        "Data Scientist",
+        "Statistician",
+        "Research Analyst",
+        "Research Associate",
+        "Policy Analyst",
+        "Data Engineer",
+        "Product Manager",
+        "Product Analyst",
+        "Project Manager",
     ]
 
     job_listings = launch(keywords)
