@@ -31,7 +31,7 @@ def launch(keywords, json_file='job_listings.json'):
     # Create a WebDriver instance 
     driver = webdriver.Chrome(options=options)
 
-    for row in df.iterrows():
+    for idx, row in df.iterrows():
         url = row['URL']
         organization_name = row['Company']
         sector = row['Sector']
