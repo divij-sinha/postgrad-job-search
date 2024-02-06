@@ -136,10 +136,8 @@ def main():
         "Data Scientist",
         "Statistician",
         "Research Analyst",
-        "Research",
-        "Policy",
-        "Data Science",
-        "Data"
+        "Research Associate",
+        "Policy Analyst",
     ]
     url_list = data_handle()
     if not url_list:
