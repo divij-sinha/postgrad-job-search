@@ -3,6 +3,7 @@ import os
 import smtplib
 import ssl
 import datetime
+import requests
 from selenium import webdriver
 from selenium.common.exceptions import WebDriverException
 from pretty_html_table import build_table
