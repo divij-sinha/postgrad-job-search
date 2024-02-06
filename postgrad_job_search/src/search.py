@@ -19,7 +19,7 @@ def data_handle():
     """
     try:
         df = pd.read_excel("Companies.xlsx")
-        url_list = [[row['Name'], row['URL'], row['Sector']] for index, row in df.iterrows()]
+        url_list = [[row['Company'], row['URL'], row['Sector']] for index, row in df.iterrows()]
         return url_list
     except Exception as e:
         logging.error(f"Error reading Companies.xlsx: {e}")
