@@ -45,7 +45,11 @@ def launch(url_list, keywords, json_file='job_listings.json'):
 
                 for element in soup.find_all('a', href=True):
                     job_title = element.text.strip()
+                    for keyword in keywords:
+                        if keyword.lower() in job_title.lower():
+                            print("--", job_title)
                     if filter_job_title(job_title) and any(keyword.lower() in job_title.lower() for keyword in keywords):
+                        print("!!", job_title)
                         job_link = element['href']
                         if not job_link.startswith("http"):
                             job_link = url + job_link
