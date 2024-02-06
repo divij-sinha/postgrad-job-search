@@ -4,9 +4,6 @@ import smtplib
 import ssl
 import datetime
 import requests
-from selenium import webdriver
-from selenium.common.exceptions import WebDriverException
-from pretty_html_table import build_table
 from dotenv import load_dotenv
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -14,8 +11,7 @@ from bs4 import BeautifulSoup
 import logging
 import json
 
-load_dotenv() 
-
+load_dotenv()
 
 def data_handle():
     """
@@ -28,6 +24,10 @@ def data_handle():
     except Exception as e:
         logging.error(f"Error reading Companies.xlsx: {e}")
         return []
+
+def filter_job_title(job_title):
+    exclude_keywords = ['intern', 'student']
+    return not any(keyword.lower() in job_title.lower() for keyword in exclude_keywords)
 
 def launch(url_list, keywords, json_file='job_listings.json'):
     stored_jobs = load_job_listings(json_file)
@@ -45,7 +45,7 @@ def launch(url_list, keywords, json_file='job_listings.json'):
 
                 for element in soup.find_all('a', href=True):
                     job_title = element.text.strip()
-                    if any(keyword.lower() in job_title.lower() for keyword in keywords):
+                    if filter_job_title(job_title) and any(keyword.lower() in job_title.lower() for keyword in keywords):
                         job_link = element['href']
                         if not job_link.startswith("http"):
                             job_link = url + job_link
@@ -56,14 +56,13 @@ def launch(url_list, keywords, json_file='job_listings.json'):
                                 'title': job_title,
                                 'apply_link': job_link,
                                 'sector': sector,
-                                'is_new': True  # Mark as new
+                                'is_new': 'NEW'  # Mark as new
                             }
                             new_job_listings.append(job_info)
                             stored_jobs.append(job_info)
         except Exception as e:
             print(f"Error scraping {url}: {e}")
 
-    # Save updated job list to JSON, combining stored and new listings
     save_job_listings(json_file, stored_jobs)
 
     return new_job_listings
@@ -77,8 +76,7 @@ def email(job_listings):
         logging.error("Email credentials are not set in environment variables.")
         return
 
-    # Filter new job listings
-    new_job_listings = [job for job in job_listings if job.get('is_new')]
+    new_job_listings = [job for job in job_listings if job.get('is_new') == 'NEW']
 
     smtp_server = "smtp.gmail.com"
     smtp_port = 587
@@ -89,10 +87,13 @@ def email(job_listings):
     msg["To"] = receiver_email
     msg["Subject"] = f"New Job Alert — {today}"
 
-    # Prepare HTML content for new job listings
+    # Convert job listings to DataFrame and adjust for email
     if new_job_listings:
-        new_job_df = pd.DataFrame(new_job_listings)
-        new_job_html = build_table(new_job_df, "blue_dark")
+        df = pd.DataFrame(new_job_listings)
+        df['title'] = df.apply(lambda x: f'<a href="{x["apply_link"]}">{x["title"]}</a>', axis=1)
+        df.drop('apply_link', axis=1, inplace=True)
+        df.rename(columns={'organization': 'Organization', 'title': 'Position', 'sector': 'Sector', 'is_new': 'Status'}, inplace=True)
+        new_job_html = df.to_html(escape=False, index=False)
         new_jobs_section = f"<h2>New Job Listings</h2>{new_job_html}"
     else:
         new_jobs_section = "<h2>No New Job Listings Found</h2>"
@@ -117,7 +118,6 @@ def email(job_listings):
     except Exception as e:
         logging.error(f"Email could not be sent. Error: {e}")
 
-
 def load_job_listings(file_path):
     try:
         with open(file_path, 'r') as file:
@@ -125,7 +125,6 @@ def load_job_listings(file_path):
     except FileNotFoundError:
         return []
 
-# Function to save job listings to a JSON file
 def save_job_listings(file_path, job_listings):
     with open(file_path, 'w') as file:
         json.dump(job_listings, file, indent=4)
@@ -138,6 +137,9 @@ def main():
         "Research Analyst",
         "Research Associate",
         "Policy Analyst",
+        "Data Engineer",
+        "Product Manager",
+        "Product Analyst"
     ]
     url_list = data_handle()
     if not url_list:
@@ -154,5 +156,4 @@ def main():
 if __name__ == "__main__":
     main()
 
-main()
 
