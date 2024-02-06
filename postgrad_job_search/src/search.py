@@ -18,7 +18,7 @@ def filter_job_title(job_title):
     exclude_keywords = ['intern', 'student']
     return not any(keyword.lower() in job_title.lower() for keyword in exclude_keywords)
 
-def launch(url_list, keywords, json_file='job_listings.json'):
+def launch(keywords, json_file='job_listings.json'):
     df = pd.read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vSQC3Io4qy97NqcUbSjMjcaC08A4GASQeK8CyQnqodXQhkEVb7m4ve-ofsdO_Frz6RAZPCBzeVrXV4r/pub?output=csv")
     
     stored_jobs = load_job_listings(json_file)
@@ -144,12 +144,8 @@ def main():
         "Product Analyst",
         "Project Manager",
     ]
-    url_list = data_handle()
-    if not url_list:
-        logging.error("No URLs found. Exiting.")
-        return
 
-    job_listings = launch(url_list, keywords)
+    job_listings = launch(keywords)
     if job_listings:
         email(job_listings)
         logging.info("Email sent with job listings.")
