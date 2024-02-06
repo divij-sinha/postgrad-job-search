@@ -34,39 +34,51 @@ def launch(url_list, keywords, json_file='job_listings.json'):
     stored_links = {job['apply_link'] for job in stored_jobs}  # Set for fast lookup
     new_job_listings = []
 
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')  
+
+    # Create a WebDriver instance 
+    driver = webdriver.Chrome(options=options)
+
+    for idx, url in enumerate(url_list):
+        print(f"going to this url: {url}")
+        # time.sleep(30)
+        driver.implicitly_wait(2)
+        driver.get(url)
+
     for comp in url_list:
         organization_name = comp[0]
         url = comp[1]
         sector = comp[2]
         try:
             print(url)
-            response = requests.get(url)
-            print(response.status_code)
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.content, 'html.parser')
-                print(soup.text)
-                for element in soup.find_all('a', href=True):
-                    job_title = element.text.strip()
-                    if filter_job_title(job_title) and any(keyword.lower() in job_title.lower() for keyword in keywords):
-                        job_link = element['href']
-                        if not job_link.startswith("http"):
-                            job_link = url + job_link
+            driver.implicitly_wait(2)
+            driver.get(url)
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            print(soup.text)
+            for element in soup.find_all('a', href=True):
+                job_title = element.text.strip()
+                if filter_job_title(job_title) and any(keyword.lower() in job_title.lower() for keyword in keywords):
+                    job_link = element['href']
+                    if not job_link.startswith("http"):
+                        job_link = url + job_link
 
-                        if job_link not in stored_links:
-                            job_info = {
-                                'organization': organization_name,
-                                'title': job_title,
-                                'apply_link': job_link,
-                                'sector': sector,
-                                'is_new': 'NEW'  # Mark as new
-                            }
-                            new_job_listings.append(job_info)
-                            stored_jobs.append(job_info)
+                    if job_link not in stored_links:
+                        job_info = {
+                            'organization': organization_name,
+                            'title': job_title,
+                            'apply_link': job_link,
+                            'sector': sector,
+                            'is_new': 'NEW'  # Mark as new
+                        }
+                        new_job_listings.append(job_info)
+                        stored_jobs.append(job_info)
         except Exception as e:
             print(f"Error scraping {url}: {e}")
-
+    
+    driver.quit()
     save_job_listings(json_file, stored_jobs)
-
+    
     return new_job_listings
 
 def email(job_listings):
