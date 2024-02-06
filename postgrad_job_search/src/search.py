@@ -139,7 +139,8 @@ def main():
         "Policy Analyst",
         "Data Engineer",
         "Product Manager",
-        "Product Analyst"
+        "Product Analyst",
+        "Project Manager",
     ]
     url_list = data_handle()
     if not url_list:
