@@ -10,7 +10,10 @@ from dotenv import load_dotenv
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from bs4 import BeautifulSoup
-import logger
+import logging
+import json
+
+load_dotenv() 
 
 
 def data_handle():
@@ -25,16 +28,16 @@ def data_handle():
         logging.error(f"Error reading Companies.xlsx: {e}")
         return []
 
-def launch(url_list, keywords):
-    all_job_listings = []
-    seen_links = set()  # Set to store seen job links
+def launch(url_list, keywords, json_file='job_listings.json'):
+    stored_jobs = load_job_listings(json_file)
+    stored_links = {job['apply_link'] for job in stored_jobs}  # Set for fast lookup
+    new_job_listings = []
 
     for comp in url_list:
         organization_name = comp[0]
         url = comp[1]
         sector = comp[2]
         try:
-            # Fetch the page content
             response = requests.get(url)
             if response.status_code == 200:
                 soup = BeautifulSoup(response.content, 'html.parser')
@@ -46,23 +49,23 @@ def launch(url_list, keywords):
                         if not job_link.startswith("http"):
                             job_link = url + job_link
 
-                        # deduplicate
-                        if job_link not in seen_links:
-                            seen_links.add(job_link)  # Mark this job link as seen
-
+                        if job_link not in stored_links:
                             job_info = {
                                 'organization': organization_name,
                                 'title': job_title,
                                 'apply_link': job_link,
-                                'sector': 
+                                'sector': sector,
+                                'is_new': True  # Mark as new
                             }
-                            all_job_listings.append(job_info)
-            else:
-                logging.error(f"Failed to fetch {url}: Status code {response.status_code}")
+                            new_job_listings.append(job_info)
+                            stored_jobs.append(job_info)
         except Exception as e:
-            logging.error(f"Error scraping {url}: {e}")
+            print(f"Error scraping {url}: {e}")
 
-    return all_job_listings
+    # Save updated job list to JSON, combining stored and new listings
+    save_job_listings(json_file, stored_jobs)
+
+    return new_job_listings
 
 def email(job_listings):
     receiver_email = os.getenv("R_EMAIL_ADDRESS")
@@ -73,6 +76,9 @@ def email(job_listings):
         logging.error("Email credentials are not set in environment variables.")
         return
 
+    # Filter new job listings
+    new_job_listings = [job for job in job_listings if job.get('is_new')]
+
     smtp_server = "smtp.gmail.com"
     smtp_port = 587
 
@@ -82,15 +88,19 @@ def email(job_listings):
     msg["To"] = receiver_email
     msg["Subject"] = f"New Job Alert — {today}"
 
-    job_df = pd.DataFrame(job_listings)
-    job_html = build_table(job_df, "blue_dark")
+    # Prepare HTML content for new job listings
+    if new_job_listings:
+        new_job_df = pd.DataFrame(new_job_listings)
+        new_job_html = build_table(new_job_df, "blue_dark")
+        new_jobs_section = f"<h2>New Job Listings</h2>{new_job_html}"
+    else:
+        new_jobs_section = "<h2>No New Job Listings Found</h2>"
 
     html = f"""
     <html>
         <body>
-            <h1>Daily Job Search Notification</h1>
-            <p>Here are the jobs matching your keywords:</p>
-            {job_html}
+            <h1>Daily Job Search Notification - {today}</h1>
+            {new_jobs_section}
         </body>
     </html>
     """
@@ -105,6 +115,19 @@ def email(job_listings):
         logging.info("Email sent successfully!")
     except Exception as e:
         logging.error(f"Email could not be sent. Error: {e}")
+
+
+def load_job_listings(file_path):
+    try:
+        with open(file_path, 'r') as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return []
+
+# Function to save job listings to a JSON file
+def save_job_listings(file_path, job_listings):
+    with open(file_path, 'w') as file:
+        json.dump(job_listings, file, indent=4)
 
 def main():
     keywords = [
