@@ -39,7 +39,9 @@ def launch(url_list, keywords, json_file='job_listings.json'):
         url = comp[1]
         sector = comp[2]
         try:
+            print(url)
             response = requests.get(url)
+            print(response.status_code)
             if response.status_code == 200:
                 soup = BeautifulSoup(response.content, 'html.parser')
 
