@@ -22,11 +22,13 @@ def launch(keywords, json_file='job_listings.json'):
     df = pd.read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vSQC3Io4qy97NqcUbSjMjcaC08A4GASQeK8CyQnqodXQhkEVb7m4ve-ofsdO_Frz6RAZPCBzeVrXV4r/pub?output=csv")
     
     stored_jobs = load_job_listings(json_file)
-    stored_links = {job['apply_link'] for job in stored_jobs}
+    stored_links = {job['apply_link'] for job in stored_jobs}  # Set for fast lookup
     new_job_listings = []
 
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')  
+
+    # Create a WebDriver instance 
     driver = webdriver.Chrome(options=options)
 
     for idx, row in df.iterrows():
@@ -44,7 +46,7 @@ def launch(keywords, json_file='job_listings.json'):
             print(soup.text)
             for element in soup.find_all('a', href=True):
                 job_title = element.text.strip()
-                if filter_job_title(job_title) and any(keyword.lower() in job_title for keyword in keywords):
+                if filter_job_title(job_title) and any(keyword.lower() in job_title.lower() for keyword in keywords):
                     job_link = element['href']
                     if not job_link.startswith("http"):
                         job_link = url + job_link
