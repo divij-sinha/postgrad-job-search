@@ -1,158 +1,126 @@
 import pandas as pd
-import os
-import smtplib
-import ssl
-import datetime
-import requests
-from dotenv import load_dotenv
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from bs4 import BeautifulSoup
-import logging
 import json
-from selenium import webdriver
+from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+import os
+import itertools
+import time
+import asyncio
+
+from dotenv import load_dotenv
 
 load_dotenv()
+N_PER_RUN = int(os.environ["N_PER_RUN"])
+
+keywords_ = [
+    "Data Analyst",
+    "Data Scientist",
+    "Statistician",
+    "Research Analyst",
+    "Research Associate",
+    "Policy Analyst",
+    "Data Engineer",
+    "Researcher",
+    "Research Scientist",
+    "Research Engineer",
+    "Data Policy",
+    "Statistics",
+    "Engineer",
+    "Director of Government Client Services",
+]
+
 
 def filter_job_title(job_title):
-    exclude_keywords = ['internship', 'student']
-    return not any(keyword.lower() in job_title.lower() for keyword in exclude_keywords)
+    return not any(keyword.lower() in job_title.lower() for keyword in exclude)
 
-def launch(keywords, json_file='job_listings.json'):
-    df = pd.read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vSQC3Io4qy97NqcUbSjMjcaC08A4GASQeK8CyQnqodXQhkEVb7m4ve-ofsdO_Frz6RAZPCBzeVrXV4r/pub?output=csv")
-    
-    stored_jobs = load_job_listings(json_file)
-    stored_links = {job['apply_link'] for job in stored_jobs}  # Set for fast lookup
-    new_job_listings = []
 
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')  
-
-    # Create a WebDriver instance 
-    driver = webdriver.Chrome(options=options)
-
-    for idx, row in df.iterrows():
-        url = row['URL']
-        organization_name = row['Company']
-        sector = row['Sector']
-        print(f"going to this url: {url}")
-        # time.sleep(30)
-        driver.implicitly_wait(2)
-        driver.get(url)
+async def get_job_from_page(row, i):
+    async with async_playwright() as p:
+        webkit = await p.webkit.launch(headless=True, timeout=100_000)
+        page = await webkit.new_page()
+        # print(f"trying {row['Company']}")
+        job_infos = []
         try:
-            print(url)
-            driver.implicitly_wait(2)
-            soup = BeautifulSoup(driver.page_source, 'html.parser')
-            print(soup.text)
-            for element in soup.find_all('a', href=True):
+            await page.goto(row["URL"], wait_until="networkidle", timeout=20_000)
+            # print(f"loaded {row['Company']}")
+            future_urls = [
+                frame.url for frame in page.frames if frame.url != row["URL"]
+            ]
+            inner_html = await page.inner_html("*")
+            soup = BeautifulSoup(inner_html, "html.parser")
+            for element in soup.find_all("a", href=True):
                 job_title = element.text.strip()
-                if filter_job_title(job_title) and any(keyword.lower() in job_title.lower() for keyword in keywords):
-                    job_link = element['href']
+                if filter_job_title(job_title) and any(
+                    keyword.lower() in job_title.lower() for keyword in keywords
+                ):
+                    job_link = element["href"]
                     if not job_link.startswith("http"):
-                        job_link = url + job_link
+                        job_link = "".join((row["URL"], job_link))
+                    job_info = {
+                        "company": row["Company"],
+                        "title": job_title,
+                        "apply_link": job_link,
+                        # "is_new": "NEW",  # Mark as new
+                    }
+                    job_infos.append(job_info)
+            return {"Company": row["Company"], "URL": future_urls}, job_infos
+        except:
+            print(f"took too long to load {row['Company']}")
+            return {"Company": row["Company"], "URL": [row["URL"]]}, job_infos
 
-                    if job_link not in stored_links:
-                        job_info = {
-                            'organization': organization_name,
-                            'title': job_title,
-                            'apply_link': job_link,
-                            'sector': sector,
-                            'is_new': 'NEW'  # Mark as new
-                        }
-                        new_job_listings.append(job_info)
-                        stored_jobs.append(job_info)
-        except Exception as e:
-            print(f"Error scraping {url}: {e}")
-    
-    driver.quit()
-    save_job_listings(json_file, stored_jobs)
-    
-    return new_job_listings
 
-def email(job_listings):
-    receiver_email = os.getenv("R_EMAIL_ADDRESS")
-    sender_email = os.getenv("S_EMAIL_ADDRESS")
-    password = os.getenv("EMAIL_PASSWORD")
-    
-    if not (receiver_email and sender_email and password):
-        logging.error("Email credentials are not set in environment variables.")
-        return
+async def get_job_listings(df):
+    all_parts = []
+    for i, row in df.iterrows():
+        all_parts.append(get_job_from_page(row, i))
+    res = await asyncio.gather(*all_parts)
+    future_urls, job_listings = zip(*res)
 
-    new_job_listings = [job for job in job_listings if job.get('is_new') == 'NEW']
+    return future_urls, job_listings
 
-    smtp_server = "smtp.gmail.com"
-    smtp_port = 587
 
-    msg = MIMEMultipart()
-    today = datetime.date.today().strftime("%Y-%m-%d")
-    msg["From"] = sender_email
-    msg["To"] = receiver_email
-    msg["Subject"] = f"New Job Alert — {today}"
+def search(df):
+    global keywords, exclude
+    keywords = df.loc[:, "Keywords"].dropna().to_list()
+    exclude = df.loc[:, "Exclude"].dropna().to_list()
+    df = df.loc[:, ["Company", "URL"]].drop_duplicates(subset=["Company", "URL"])
 
-    # Convert job listings to DataFrame and adjust for email
-    if new_job_listings:
-        df = pd.DataFrame(new_job_listings)
-        df['title'] = df.apply(lambda x: f'<a href="{x["apply_link"]}">{x["title"]}</a>', axis=1)
-        df.drop('apply_link', axis=1, inplace=True)
-        df.rename(columns={'organization': 'Organization', 'title': 'Position', 'sector': 'Sector', 'is_new': 'Status'}, inplace=True)
-        new_job_html = df.to_html(escape=False, index=False)
-        new_jobs_section = f"<h2>New Job Listings</h2>{new_job_html}"
-    else:
-        new_jobs_section = "<h2>No New Job Listings Found</h2>"
+    full_job_listings = []
+    links_visited = []
+    while df.shape[0] > 0:
+        full_future_urls = []
+        n = df.shape[0]
+        n_runs = (n // N_PER_RUN) + 1
+        for i in range(n_runs):
+            res = asyncio.run(
+                get_job_listings(df.iloc[i * N_PER_RUN : min((i + 1) * N_PER_RUN, n)])
+            )
+            future_urls, job_listings = res
+            full_future_urls.extend(future_urls)
+            full_job_listings.extend(job_listings)
 
-    html = f"""
-    <html>
-        <body>
-            <h1>Daily Job Search Notification - {today}</h1>
-            {new_jobs_section}
-        </body>
-    </html>
-    """
+        future_df = pd.DataFrame(full_future_urls)
+        future_df = future_df.explode("URL")
+        future_df = future_df.reset_index(drop=True)
+        future_df = future_df.dropna()
+        future_df = future_df.loc[future_df.URL != "about:blank"]
+        future_df = future_df.loc[~future_df.URL.isin(links_visited)]
+        future_df = future_df.loc[~future_df.URL.str.contains("recaptcha")]
+        future_df = future_df.loc[~future_df.URL.str.contains("paypal")]
+        future_df = future_df.loc[~future_df.URL.str.contains("stripe")]
+        future_df = future_df.drop_duplicates()
+        links_visited.extend(future_df.URL)
+        df = future_df
 
-    msg.attach(MIMEText(html, "html"))
+    full_job_listings = itertools.chain.from_iterable(full_job_listings)
+    full_job_listings = pd.DataFrame(full_job_listings).drop_duplicates()
 
-    try:
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls(context=ssl.create_default_context())
-            server.login(sender_email, password)
-            server.sendmail(sender_email, receiver_email, msg.as_string())
-        logging.info("Email sent successfully!")
-    except Exception as e:
-        logging.error(f"Email could not be sent. Error: {e}")
+    return full_job_listings
 
-def load_job_listings(file_path):
-    try:
-        with open(file_path, 'r') as file:
-            return json.load(file)
-    except FileNotFoundError:
-        return []
-
-def save_job_listings(file_path, job_listings):
-    with open(file_path, 'w') as file:
-        json.dump(job_listings, file, indent=4)
-
-def main():
-    keywords = [
-        "Data Analyst",
-        "Data Scientist",
-        "Statistician",
-        "Research Analyst",
-        "Research Associate",
-        "Policy Analyst",
-        "Data Engineer",
-        "Product Manager",
-        "Product Analyst",
-        "Project Manager",
-    ]
-
-    job_listings = launch(keywords)
-    if job_listings:
-        email(job_listings)
-        logging.info("Email sent with job listings.")
-    else:
-        logging.info("No job listings found.")
 
 if __name__ == "__main__":
-    main()
-
-
+    df = pd.read_csv(os.environ["CONFIGCSV"])
+    jl = search(df)
+    print(jl)
