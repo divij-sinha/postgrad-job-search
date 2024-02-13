@@ -38,8 +38,8 @@ def filter_job_title(job_title):
 
 async def get_job_from_page(row, i):
     async with async_playwright() as p:
-        webkit = await p.webkit.launch(headless=True, timeout=100_000)
-        page = await webkit.new_page()
+        browser = await p.webkit.launch(headless=True, timeout=100_000)
+        page = await browser.new_page()
         # print(f"trying {row['Company']}")
         job_infos = []
         try:
@@ -67,7 +67,7 @@ async def get_job_from_page(row, i):
                     job_infos.append(job_info)
             return {"Company": row["Company"], "URL": future_urls}, job_infos
         except:
-            print(f"took too long to load {row['Company']}")
+            print(f"failed {row['Company']}")
             return {"Company": row["Company"], "URL": [row["URL"]]}, job_infos
 
 
