@@ -38,16 +38,17 @@ def filter_job_title(job_title):
 
 async def get_job_from_page(row, i):
     async with async_playwright() as p:
-        browser = await p.webkit.launch(headless=True, timeout=100_000)
+        if os.environ["BROWSER"] == "webkit":
+            browser = await p.webkit.launch(headless=True, timeout=100_000)
+        elif os.environ["BROWSER"] == "chromium":
+            browser = await p.chromium.launch(headless=True, timeout=100_000)
         page = await browser.new_page()
         # print(f"trying {row['Company']}")
         job_infos = []
         try:
             await page.goto(row["URL"], wait_until="networkidle", timeout=20_000)
             # print(f"loaded {row['Company']}")
-            future_urls = [
-                frame.url for frame in page.frames if frame.url != row["URL"]
-            ]
+            future_urls = [frame.url for frame in page.frames if frame.url != page.url]
             inner_html = await page.inner_html("*")
             soup = BeautifulSoup(inner_html, "html.parser")
             for element in soup.find_all("a", href=True):
@@ -57,11 +58,15 @@ async def get_job_from_page(row, i):
                 ):
                     job_link = element["href"]
                     if not job_link.startswith("http"):
-                        job_link = "".join((row["URL"], job_link))
+                        if job_link.startswith("/"):
+                            job_link = job_link[1:]
+                        job_link = "/".join(
+                            ("https:/", page.url.split("/")[2], job_link)
+                        )
                     job_info = {
-                        "company": row["Company"],
-                        "title": job_title,
-                        "apply_link": job_link,
+                        "Company": row["Company"],
+                        "Title": job_title,
+                        "Apply Link": job_link,
                         # "is_new": "NEW",  # Mark as new
                     }
                     job_infos.append(job_info)

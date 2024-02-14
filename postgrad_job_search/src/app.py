@@ -46,10 +46,17 @@ def call_search(request: Request, input_link: Annotated[str, Form()]):
     assert "Keywords" in df.columns
     assert "Exclude" in df.columns
     job_listings = search(df)
+    job_listings = job_listings.sort_values(by=["Company", "Title"])
     file_name = uuid.uuid4()
     file_path = f"out/{file_name}.csv"
     job_listings.to_csv(file_path, index=False)
-    job_listings_html = job_listings.to_html(index=False, render_links=True)
+    job_listings_html = job_listings.to_html(
+        index=False,
+        render_links=True,
+        classes="table table-striped w-25",
+        justify="left",
+        col_space="100px",
+    )
     return templates.TemplateResponse(
         request=request,
         name="result.html",
