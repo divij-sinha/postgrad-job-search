@@ -1,5 +1,7 @@
 beautifulsoup4==4.11.2
+fastapi==0.109.2
 pandas==1.5.3
 playwright==1.41.2
 python-dotenv==1.0.1
-streamlit==1.31.1
+uvicorn==0.27.1
+python-multipart==0.0.9
