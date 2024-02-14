@@ -5,3 +5,4 @@ playwright==1.41.2
 python-dotenv==1.0.1
 uvicorn==0.27.1
 python-multipart==0.0.9
+Jinja2==3.1.2
