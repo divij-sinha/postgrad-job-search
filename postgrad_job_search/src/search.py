@@ -20,15 +20,16 @@ def filter_job_title(job_title, exclude):
 
 async def get_job_from_page(row, i, keywords, exclude):
     async with async_playwright() as p:
-        if os.environ["BROWSER"] == "webkit":
+        if os.environ["PWBROWSER"] == "webkit":
             browser = await p.webkit.launch(headless=True, timeout=100_000)
-        elif os.environ["BROWSER"] == "chromium":
+        elif os.environ["PWBROWSER"] == "chromium":
             browser = await p.chromium.launch(headless=True, timeout=100_000)
         page = await browser.new_page()
         print(f"trying {row['Company']}")
         job_infos = []
         try:
             await page.goto(row["URL"], wait_until="networkidle", timeout=20_000)
+            await page.wait_for_timeout(5000)
             future_urls = [frame.url for frame in page.frames if frame.url != page.url]
             inner_html = await page.inner_html("*")
             soup = BeautifulSoup(inner_html, "html.parser")
