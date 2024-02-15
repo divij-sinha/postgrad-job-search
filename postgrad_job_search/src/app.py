@@ -29,7 +29,7 @@ async def start_redirect():
 @app.get("/search/")
 async def start(request: Request):
     return templates.TemplateResponse(
-        request=request, name="index.html", context={"port": os.environ["WSPORT"]}
+        request=request, name="index.html", context={"wsurl": os.environ["WSURL"]}
     )
 
 
