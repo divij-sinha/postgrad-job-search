@@ -62,9 +62,11 @@ async def get_job_listings(df, keywords, exclude):
     for i, row in df.iterrows():
         all_parts.append(get_job_from_page(row, i, keywords, exclude))
     res = await asyncio.gather(*all_parts)
-    future_urls, job_listings = zip(*res)
-
-    return future_urls, job_listings
+    try:
+        future_urls, job_listings = zip(*res)
+        return future_urls, job_listings
+    except:
+        return None
 
 
 async def search(df):
@@ -84,9 +86,10 @@ async def search(df):
             res = await get_job_listings(
                 df.iloc[i * N_PER_RUN : min((i + 1) * N_PER_RUN, n)], keywords, exclude
             )
-            future_urls, job_listings = res
-            full_future_urls.extend(future_urls)
-            full_job_listings.extend(job_listings)
+            if res is not None:
+                future_urls, job_listings = res
+                full_future_urls.extend(future_urls)
+                full_job_listings.extend(job_listings)
 
         future_df = pd.DataFrame(full_future_urls)
         future_df = future_df.explode("URL")
