@@ -46,7 +46,7 @@ def valid_df(input_link: str):
         return None
 
 
-async def call_search(df):
+async def call_search(df, websocket):
     keywords = df.loc[:, "Keywords"].dropna().to_list()
     exclude = df.loc[:, "Exclude"].dropna().to_list()
     df = df.loc[:, ["Company", "URL"]].drop_duplicates(subset=["Company", "URL"])
@@ -60,8 +60,12 @@ async def call_search(df):
         n = df.shape[0]
         n_runs = (n // N_PER_RUN) + 1
         for i in range(n_runs):
+            await websocket.send_text("Run 1")
             res = await get_job_listings(
-                df.iloc[i * N_PER_RUN : min((i + 1) * N_PER_RUN, n)], keywords, exclude
+                df.iloc[i * N_PER_RUN : min((i + 1) * N_PER_RUN, n)],
+                keywords,
+                exclude,
+                websocket,
             )
             future_urls, job_listings = res
             full_future_urls.extend(future_urls)
@@ -110,7 +114,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
     await websocket.send_text(f"Found the sheet, starting scraping now!")
 
-    full_job_listings = await search(res)
+    full_job_listings = await call_search(res, websocket)
 
     file_name = uuid.uuid4()
     file_path = f"out/{file_name}.csv"
