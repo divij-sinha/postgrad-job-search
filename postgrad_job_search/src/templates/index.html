@@ -35,7 +35,7 @@
         <div class = "container mb-3" id='messages'>
         </div>
         <script>
-            var ws = new WebSocket("ws://localhost:{{port}}/ws");
+            var ws = new WebSocket("wss://localhost/ws");
             ws.onmessage = function(event) {
                 var messages = document.getElementById('messages')
                 var div = document.createElement('div')
