@@ -57,10 +57,9 @@ async def get_job_from_page(row, i, keywords, exclude):
             return {"Company": row["Company"], "URL": [row["URL"]]}, job_infos
 
 
-async def get_job_listings(df, keywords, exclude, websocket):
+async def get_job_listings(df, keywords, exclude):
     all_parts = []
     for i, row in df.iterrows():
-        await websocket.send_text(str(i))
         all_parts.append(get_job_from_page(row, i, keywords, exclude))
     res = await asyncio.gather(*all_parts)
     future_urls, job_listings = zip(*res)
