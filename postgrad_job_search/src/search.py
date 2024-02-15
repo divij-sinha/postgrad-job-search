@@ -1,12 +1,7 @@
 import pandas as pd
-from bs4 import BeautifulSoup
-import json
-from playwright.sync_api import sync_playwright
 from playwright.async_api import async_playwright
-from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 import os
 import itertools
-import time
 import asyncio
 
 from dotenv import load_dotenv
@@ -27,14 +22,16 @@ async def get_job_from_page(row, context, keywords, exclude):
         await page.goto(row["URL"], wait_until="networkidle", timeout=20_000)
         await page.wait_for_timeout(5000)
         future_urls = [frame.url for frame in page.frames if frame.url != page.url]
-        inner_html = await page.inner_html("*")
-        soup = BeautifulSoup(inner_html, "html.parser")
-        for element in soup.find_all("a", href=True):
-            job_title = element.text.strip()
+        # inner_html = await page.inner_html("*")
+        # soup = BeautifulSoup(inner_html, "html.parser")
+        elements = await page.query_selector_all("a[href]")
+        for element in elements:
+            job_title = await element.text_content()
             if filter_job_title(job_title, exclude) and any(
                 keyword.lower() in job_title.lower() for keyword in keywords
             ):
-                job_link = element["href"]
+                print(job_title)
+                job_link = href = await element.get_attribute("href")
                 if not job_link.startswith("http"):
                     if job_link.startswith("/"):
                         job_link = job_link[1:]
