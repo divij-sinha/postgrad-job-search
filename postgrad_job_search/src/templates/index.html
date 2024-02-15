@@ -22,13 +22,8 @@
     <li>Click Publish</li>
     <li>Copy the link shown and paste below</li>
 </ol>
-    {% if code == "error" %}
-        <div class="alert alert-danger">
-            Check the columns at the link you entered!
-        </div>
-    {% endif %}
 
-    <form method="post" action="/search_page">
+    <form action="" onsubmit="sendMessage(event)">
         <!-- Input fields -->
         <div class="mb-3">
             <label for="inputLink" class="form-label">Link</label>
@@ -36,5 +31,24 @@
         </div>
         <!-- Submit button -->
         <button type="submit" class="btn btn-primary">Submit</button>
+        <div class="p-1"></div>
+        <div class = "container mb-3" id='messages'>
+        </div>
+        <script>
+            var ws = new WebSocket("ws://localhost:8000/ws");
+            ws.onmessage = function(event) {
+                var messages = document.getElementById('messages')
+                var div = document.createElement('div')
+                div.innerHTML = event.data
+                messages.appendChild(div)
+            };
+            function sendMessage(event) {
+                var input = document.getElementById("inputLink")
+                ws.send(input.value)
+                input.value = ''
+                event.preventDefault()
+            }
+        </script>
+
     </form>
 {% endblock %}

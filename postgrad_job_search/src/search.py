@@ -12,48 +12,29 @@ import asyncio
 from dotenv import load_dotenv
 
 load_dotenv()
-N_PER_RUN = int(os.environ["N_PER_RUN"])
-
-keywords_ = [
-    "Data Analyst",
-    "Data Scientist",
-    "Statistician",
-    "Research Analyst",
-    "Research Associate",
-    "Policy Analyst",
-    "Data Engineer",
-    "Researcher",
-    "Research Scientist",
-    "Research Engineer",
-    "Data Policy",
-    "Statistics",
-    "Engineer",
-    "Director of Government Client Services",
-]
 
 
-def filter_job_title(job_title):
+def filter_job_title(job_title, exclude):
     return not any(keyword.lower() in job_title.lower() for keyword in exclude)
 
 
-async def get_job_from_page(row, i):
+async def get_job_from_page(row, i, keywords, exclude):
     async with async_playwright() as p:
         if os.environ["BROWSER"] == "webkit":
             browser = await p.webkit.launch(headless=True, timeout=100_000)
         elif os.environ["BROWSER"] == "chromium":
             browser = await p.chromium.launch(headless=True, timeout=100_000)
         page = await browser.new_page()
-        # print(f"trying {row['Company']}")
+        print(f"trying {row['Company']}")
         job_infos = []
         try:
             await page.goto(row["URL"], wait_until="networkidle", timeout=20_000)
-            # print(f"loaded {row['Company']}")
             future_urls = [frame.url for frame in page.frames if frame.url != page.url]
             inner_html = await page.inner_html("*")
             soup = BeautifulSoup(inner_html, "html.parser")
             for element in soup.find_all("a", href=True):
                 job_title = element.text.strip()
-                if filter_job_title(job_title) and any(
+                if filter_job_title(job_title, exclude) and any(
                     keyword.lower() in job_title.lower() for keyword in keywords
                 ):
                     job_link = element["href"]
@@ -76,31 +57,32 @@ async def get_job_from_page(row, i):
             return {"Company": row["Company"], "URL": [row["URL"]]}, job_infos
 
 
-async def get_job_listings(df):
+async def get_job_listings(df, keywords, exclude):
     all_parts = []
     for i, row in df.iterrows():
-        all_parts.append(get_job_from_page(row, i))
+        all_parts.append(get_job_from_page(row, i, keywords, exclude))
     res = await asyncio.gather(*all_parts)
     future_urls, job_listings = zip(*res)
 
     return future_urls, job_listings
 
 
-def search(df):
-    global keywords, exclude
+async def search(df):
     keywords = df.loc[:, "Keywords"].dropna().to_list()
     exclude = df.loc[:, "Exclude"].dropna().to_list()
     df = df.loc[:, ["Company", "URL"]].drop_duplicates(subset=["Company", "URL"])
 
+    N_PER_RUN = int(os.environ["N_PER_RUN"])
     full_job_listings = []
     links_visited = []
     while df.shape[0] > 0:
+        print("run")
         full_future_urls = []
         n = df.shape[0]
         n_runs = (n // N_PER_RUN) + 1
         for i in range(n_runs):
-            res = asyncio.run(
-                get_job_listings(df.iloc[i * N_PER_RUN : min((i + 1) * N_PER_RUN, n)])
+            res = await get_job_listings(
+                df.iloc[i * N_PER_RUN : min((i + 1) * N_PER_RUN, n)], keywords, exclude
             )
             future_urls, job_listings = res
             full_future_urls.extend(future_urls)
@@ -121,11 +103,11 @@ def search(df):
 
     full_job_listings = itertools.chain.from_iterable(full_job_listings)
     full_job_listings = pd.DataFrame(full_job_listings).drop_duplicates()
-
+    full_job_listings = full_job_listings.sort_values(by=["Company", "Title"])
     return full_job_listings
 
 
 if __name__ == "__main__":
     df = pd.read_csv(os.environ["CONFIGCSV"])
-    jl = search(df)
+    jl = asyncio.run(search(df))
     print(jl)
