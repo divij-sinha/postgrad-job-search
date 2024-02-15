@@ -28,7 +28,9 @@ async def start_redirect():
 
 @app.get("/search/")
 async def start(request: Request):
-    return templates.TemplateResponse(request=request, name="index.html")
+    return templates.TemplateResponse(
+        request=request, name="index.html", context={"port": os.environ["WSPORT"]}
+    )
 
 
 def valid_df(input_link: str):
