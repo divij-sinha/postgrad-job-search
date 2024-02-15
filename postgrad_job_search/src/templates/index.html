@@ -44,7 +44,6 @@
             };
             function sendMessage(event) {
                 var input = document.getElementById("inputLink")
-                input.setAttribute('disabled', 'disabled');
                 ws.send(input.value)
                 input.value = ''
                 event.preventDefault()
