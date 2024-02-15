@@ -32,15 +32,61 @@
         <!-- Submit button -->
         <button type="submit" class="btn btn-primary">Submit</button>
         <div class="p-1"></div>
-        <div class = "container mb-3" id='messages'>
+        <div class="alert alert-danger" id="error" hidden>
+            Check the columns at the link you entered!
         </div>
+        <div class = "container mb-3" id="accept" hidden>
+            <p>Found the sheet, starting scraping now! Once completed, a download link will be available</p>
+        </div>
+        <div class = "container mb-3" id="results_partial" hidden>
+            <p>Starting to find results!</p>
+        </div>
+        <div class = "container mb-3" id="results_complete" hidden>
+            <p>Found all results!</p>
+        </div>
+        <div class = "container mb-3" id="messages" >
+        </div>
+        <div class="mb-3">
+            <a href="../out/" download="jobs.csv" class="btn btn-primary" hidden disabled id="download_button">Download table</a>
+        </div>
+        <div class="table table-responsive" id="results_table"></div>
         <script>
             var ws = new WebSocket("{{wsurl}}/ws");
             ws.onmessage = function(event) {
-                var messages = document.getElementById('messages')
-                var div = document.createElement('div')
-                div.innerHTML = event.data
-                messages.appendChild(div)
+                var inst = JSON.parse(event.data)
+                console.log(inst)
+                if(inst.hasOwnProperty("update_table")){
+                    var attr = document.getElementById("results_table")
+                    attr.innerHTML = inst["update_table"]                    
+                }
+                else if(inst.hasOwnProperty("show")){
+                    var attr = document.getElementById(inst['show'])
+                    attr.hidden = false
+                }
+                else if(inst.hasOwnProperty("hide")){
+                    var attr = document.getElementById(inst['hide'])
+                    attr.hidden = true
+                }
+                else if(inst.hasOwnProperty("disable")){
+                    var attr = document.getElementById(inst['disable'])
+                    attr.disable = true
+                }
+                else if(inst.hasOwnProperty("enable")){
+                    var attr = document.getElementById(inst['enable'])
+                    attr.disable = false
+                }
+                else if(inst.hasOwnProperty("message")){
+                    var attr = document.getElementById("messages")
+                    var divp = document.createElement("p")
+                    divp.innerHTML = inst["message"]
+                    attr.appendChild(divp)
+                }
+                else if(inst.hasOwnProperty("update_link")){
+                    var attr = document.getElementById("download_button")
+                    attr.setAttribute("href", "../out/"+inst["update_link"]);
+                    attr.appendChild(divp)
+                }
+                
             };
             function sendMessage(event) {
                 var input = document.getElementById("inputLink")

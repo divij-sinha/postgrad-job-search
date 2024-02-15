@@ -10,6 +10,7 @@ import uuid
 import pandas as pd
 import os
 import itertools
+import json
 
 app = FastAPI()
 
@@ -61,31 +62,23 @@ async def websocket_endpoint(websocket: WebSocket):
         res = valid_df(input_link)
         if res is not None:
             break
-        m = """
-        <div class="alert alert-danger">
-            Check the columns at the link you entered!
-        </div>
-        """
-        await websocket.send_text(m)
+        await websocket.send_json({"show": "error"})
 
-    await websocket.send_text(f"Found the sheet, starting scraping now!")
+    await websocket.send_json({"hide": "error"})
+    await websocket.send_json({"show": "accept"})
 
-    full_job_listings = await search(res)
+    full_job_listings = await search(res, websocket)
 
     if full_job_listings.shape[0] == 0:
-        await websocket.send_text(f"None Found!")
+        await websocket.send_json({"message": "None Found!"})
     else:
         file_name = uuid.uuid4()
         file_path = f"out/{file_name}.csv"
-        full_job_listings = full_job_listings.sort_values(by=["Company", "Title"])
         full_job_listings.to_csv(file_path, index=False)
 
-        await websocket.send_text(
-            f"""
-        <div class="mb-3">
-            <a href="../out/{file_name}" download="jobs.csv" class="btn btn-primary">Download table</a>
-        </div>"""
-        )
+        await websocket.send_json({"show": "download_button"})
+        await websocket.send_json({"enable": "download_button"})
+        await websocket.send_json({"update_link": str(file_name)})
 
         job_listings_html = full_job_listings.to_html(
             index=False,
@@ -94,9 +87,8 @@ async def websocket_endpoint(websocket: WebSocket):
             justify="left",
             col_space="100px",
         )
-        job_listings_html = (
-            f'<div class="table table-responsive">{job_listings_html}</div>'
-        )
-        await websocket.send_text(job_listings_html)
+        await websocket.send_json({"hide": "results_partial"})
+        await websocket.send_json({"show": "results_complete"})
+        await websocket.send_json({"update_table": job_listings_html})
 
         print(f"complete {full_job_listings.shape[0]}")

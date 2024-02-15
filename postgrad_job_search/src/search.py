@@ -70,7 +70,22 @@ async def get_job_listings(df, keywords, exclude):
         return None
 
 
-async def search(df):
+async def stream_table(ws, full_job_listings):
+    if ws is not None:
+        full_job_listings = itertools.chain.from_iterable(full_job_listings)
+        full_job_listings = pd.DataFrame(full_job_listings).drop_duplicates()
+        job_listings_html = full_job_listings.to_html(
+            index=False,
+            render_links=True,
+            classes="table table-striped w-25",
+            justify="left",
+            col_space="100px",
+        )
+        await ws.send_json({"show": "results_partial"})
+        await ws.send_json({"update_table": job_listings_html})
+
+
+async def search(df, ws=None):
     keywords = df.loc[:, "Keywords"].dropna().str.lower().to_list()
     exclude = df.loc[:, "Exclude"].dropna().str.lower().to_list()
     df = df.loc[:, ["Company", "URL"]].drop_duplicates(subset=["Company", "URL"])
@@ -91,6 +106,7 @@ async def search(df):
                 future_urls, job_listings = res
                 full_future_urls.extend(future_urls)
                 full_job_listings.extend(job_listings)
+                await stream_table(ws, full_job_listings)
 
         future_df = pd.DataFrame(full_future_urls)
         future_df = future_df.explode("URL")
