@@ -22,8 +22,6 @@ async def get_job_from_page(row, context, keywords, exclude):
         await page.goto(row["URL"], wait_until="networkidle", timeout=20_000)
         await page.wait_for_timeout(5000)
         future_urls = [frame.url for frame in page.frames if frame.url != page.url]
-        # inner_html = await page.inner_html("*")
-        # soup = BeautifulSoup(inner_html, "html.parser")
         elements = await page.query_selector_all("a[href]")
         for element in elements:
             job_title = await element.text_content()
