@@ -106,7 +106,6 @@ async def search(df):
 
     full_job_listings = itertools.chain.from_iterable(full_job_listings)
     full_job_listings = pd.DataFrame(full_job_listings).drop_duplicates()
-    full_job_listings = full_job_listings.sort_values(by=["Company", "Title"])
     return full_job_listings
 
 
