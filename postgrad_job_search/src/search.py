@@ -9,14 +9,24 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def filter_job_title(job_title, exclude):
-    return not any(keyword.lower() in job_title.lower() for keyword in exclude)
+def match(job_title, l):
+    for keyword in l:
+        if keyword.lower() in job_title:
+            return True
+    return False
+
+
+def clean_link(job_link, page_url):
+    if not job_link.startswith("http"):
+        if job_link.startswith("/"):
+            job_link = job_link[1:]
+        job_link = "/".join(("https:/", page_url.split("/")[2], job_link))
+    return job_link
 
 
 async def get_job_from_page(row, context, keywords, exclude):
 
     page = await context.new_page()
-    print(f"trying {row['Company']}")
     job_infos = []
     try:
         await page.goto(row["URL"], wait_until="networkidle", timeout=20_000)
@@ -25,15 +35,10 @@ async def get_job_from_page(row, context, keywords, exclude):
         elements = await page.query_selector_all("a[href]")
         for element in elements:
             job_title = await element.text_content()
-            if filter_job_title(job_title, exclude) and any(
-                keyword.lower() in job_title.lower() for keyword in keywords
-            ):
-                print(job_title)
-                job_link = href = await element.get_attribute("href")
-                if not job_link.startswith("http"):
-                    if job_link.startswith("/"):
-                        job_link = job_link[1:]
-                    job_link = "/".join(("https:/", page.url.split("/")[2], job_link))
+            jll = job_title.lower()
+            if match(jll, keywords) and not match(jll, exclude):
+                job_link = await element.get_attribute("href")
+                job_link = clean_link(job_link, page.url)
                 job_info = {
                     "Company": row["Company"],
                     "Title": job_title,
@@ -66,8 +71,8 @@ async def get_job_listings(df, keywords, exclude):
 
 
 async def search(df):
-    keywords = df.loc[:, "Keywords"].dropna().to_list()
-    exclude = df.loc[:, "Exclude"].dropna().to_list()
+    keywords = df.loc[:, "Keywords"].dropna().str.lower().to_list()
+    exclude = df.loc[:, "Exclude"].dropna().str.lower().to_list()
     df = df.loc[:, ["Company", "URL"]].drop_duplicates(subset=["Company", "URL"])
 
     N_PER_RUN = int(os.environ["N_PER_RUN"])
