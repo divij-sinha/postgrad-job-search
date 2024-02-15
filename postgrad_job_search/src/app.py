@@ -82,7 +82,6 @@ async def call_search(df):
 
     full_job_listings = itertools.chain.from_iterable(full_job_listings)
     full_job_listings = pd.DataFrame(full_job_listings).drop_duplicates()
-    full_job_listings = full_job_listings.sort_values(by=["Company", "Title"])
     return full_job_listings
 
 
@@ -112,25 +111,31 @@ async def websocket_endpoint(websocket: WebSocket):
 
     full_job_listings = await search(res)
 
-    file_name = uuid.uuid4()
-    file_path = f"out/{file_name}.csv"
-    full_job_listings.to_csv(file_path, index=False)
+    if full_job_listings.shape[0] == 0:
+        await websocket.send_text(f"None Found!")
+    else:
+        file_name = uuid.uuid4()
+        file_path = f"out/{file_name}.csv"
+        full_job_listings = full_job_listings.sort_values(by=["Company", "Title"])
+        full_job_listings.to_csv(file_path, index=False)
 
-    await websocket.send_text(
-        f"""
-    <div class="mb-3">
-        <a href="../out/{file_name}" download="jobs.csv" class="btn btn-primary">Download table</a>
-    </div>"""
-    )
+        await websocket.send_text(
+            f"""
+        <div class="mb-3">
+            <a href="../out/{file_name}" download="jobs.csv" class="btn btn-primary">Download table</a>
+        </div>"""
+        )
 
-    job_listings_html = full_job_listings.to_html(
-        index=False,
-        render_links=True,
-        classes="table table-striped w-25",
-        justify="left",
-        col_space="100px",
-    )
-    job_listings_html = f'<div class="table table-responsive">{job_listings_html}</div>'
-    await websocket.send_text(job_listings_html)
+        job_listings_html = full_job_listings.to_html(
+            index=False,
+            render_links=True,
+            classes="table table-striped w-25",
+            justify="left",
+            col_space="100px",
+        )
+        job_listings_html = (
+            f'<div class="table table-responsive">{job_listings_html}</div>'
+        )
+        await websocket.send_text(job_listings_html)
 
-    print("complete")
+        print("complete")
