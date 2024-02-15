@@ -18,51 +18,51 @@ def filter_job_title(job_title, exclude):
     return not any(keyword.lower() in job_title.lower() for keyword in exclude)
 
 
-async def get_job_from_page(row, i, keywords, exclude):
+async def get_job_from_page(row, context, keywords, exclude):
+
+    page = await context.new_page()
+    print(f"trying {row['Company']}")
+    job_infos = []
+    try:
+        await page.goto(row["URL"], wait_until="networkidle", timeout=20_000)
+        await page.wait_for_timeout(5000)
+        future_urls = [frame.url for frame in page.frames if frame.url != page.url]
+        inner_html = await page.inner_html("*")
+        soup = BeautifulSoup(inner_html, "html.parser")
+        for element in soup.find_all("a", href=True):
+            job_title = element.text.strip()
+            if filter_job_title(job_title, exclude) and any(
+                keyword.lower() in job_title.lower() for keyword in keywords
+            ):
+                job_link = element["href"]
+                if not job_link.startswith("http"):
+                    if job_link.startswith("/"):
+                        job_link = job_link[1:]
+                    job_link = "/".join(("https:/", page.url.split("/")[2], job_link))
+                job_info = {
+                    "Company": row["Company"],
+                    "Title": job_title,
+                    "Apply Link": job_link,
+                    # "is_new": "NEW",  # Mark as new
+                }
+                job_infos.append(job_info)
+        return {"Company": row["Company"], "URL": future_urls}, job_infos
+    except:
+        print(f"failed {row['Company']}")
+        return {"Company": row["Company"], "URL": [row["URL"]]}, job_infos
+
+
+async def get_job_listings(df, keywords, exclude):
+    all_parts = []
     async with async_playwright() as p:
         if os.environ["PWBROWSER"] == "webkit":
             browser = await p.webkit.launch(headless=True, timeout=100_000)
         elif os.environ["PWBROWSER"] == "chromium":
             browser = await p.chromium.launch(headless=True, timeout=100_000)
-        page = await browser.new_page()
-        print(f"trying {row['Company']}")
-        job_infos = []
-        try:
-            await page.goto(row["URL"], wait_until="networkidle", timeout=20_000)
-            await page.wait_for_timeout(5000)
-            future_urls = [frame.url for frame in page.frames if frame.url != page.url]
-            inner_html = await page.inner_html("*")
-            soup = BeautifulSoup(inner_html, "html.parser")
-            for element in soup.find_all("a", href=True):
-                job_title = element.text.strip()
-                if filter_job_title(job_title, exclude) and any(
-                    keyword.lower() in job_title.lower() for keyword in keywords
-                ):
-                    job_link = element["href"]
-                    if not job_link.startswith("http"):
-                        if job_link.startswith("/"):
-                            job_link = job_link[1:]
-                        job_link = "/".join(
-                            ("https:/", page.url.split("/")[2], job_link)
-                        )
-                    job_info = {
-                        "Company": row["Company"],
-                        "Title": job_title,
-                        "Apply Link": job_link,
-                        # "is_new": "NEW",  # Mark as new
-                    }
-                    job_infos.append(job_info)
-            return {"Company": row["Company"], "URL": future_urls}, job_infos
-        except:
-            print(f"failed {row['Company']}")
-            return {"Company": row["Company"], "URL": [row["URL"]]}, job_infos
-
-
-async def get_job_listings(df, keywords, exclude):
-    all_parts = []
-    for i, row in df.iterrows():
-        all_parts.append(get_job_from_page(row, i, keywords, exclude))
-    res = await asyncio.gather(*all_parts)
+        for i, row in df.iterrows():
+            context = await browser.new_context()
+            all_parts.append(get_job_from_page(row, context, keywords, exclude))
+        res = await asyncio.gather(*all_parts)
     try:
         future_urls, job_listings = zip(*res)
         return future_urls, job_listings
