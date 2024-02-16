@@ -36,21 +36,27 @@
         <div class="alert alert-danger" id="error" hidden>
             Check the columns at the link you entered!
         </div>
-        <div class = "container mb-3" id="accept" hidden>
+        <div class = "alert alert-primary" id="accept" hidden>
             <p>Found the sheet, starting scraping now! Once completed, a download link will be available</p>
         </div>
-        <div class = "container mb-3" id="results_partial" hidden>
+        <div class = "alert alert-primary" id="results_partial" hidden>
             <p>Starting to find results!</p>
         </div>
-        <div class = "container mb-3" id="results_complete" hidden>
+        <div class = "alert alert-primary" id="results_complete" hidden>
             <p>Found all results!</p>
         </div>
         <div class = "container mb-3" id="messages" >
+        </div>
+        <div class="alert alert-danger" id="big-error" hidden>
+            Something went wrong! Refresh page to try again!
         </div>
         <div class="mb-3">
             <a href="../out/" download="jobs.csv" class="btn btn-primary" hidden disabled id="download_button">Download table</a>
         </div>
         <div class="table table-responsive" id="results_table"></div>
+        <div class="mb-3">
+            <a href="../out/" download="jobs.csv" class="btn btn-primary" hidden disabled id="download_button_below">Download table</a>
+        </div>
         <script>
             var ws = new WebSocket("{{wsurl}}/ws");
             ws.onmessage = function(event) {
@@ -85,7 +91,8 @@
                 else if(inst.hasOwnProperty("update_link")){
                     var attr = document.getElementById("download_button")
                     attr.setAttribute("href", "../out/"+inst["update_link"]);
-                    attr.appendChild(divp)
+                    attr = document.getElementById("download_button_below")
+                    attr.setAttribute("href", "../out/"+inst["update_link"]);
                 }
                 
             };

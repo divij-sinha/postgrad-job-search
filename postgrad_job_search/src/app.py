@@ -67,7 +67,10 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.send_json({"hide": "error"})
     await websocket.send_json({"show": "accept"})
 
-    full_job_listings = await search(res, websocket)
+    try:
+        full_job_listings = await search(res, websocket)
+    except:
+        await websocket.send_json({"show": "big-error"})
 
     if full_job_listings.shape[0] == 0:
         await websocket.send_json({"message": "None Found!"})
@@ -77,7 +80,9 @@ async def websocket_endpoint(websocket: WebSocket):
         full_job_listings.to_csv(file_path, index=False)
 
         await websocket.send_json({"show": "download_button"})
+        await websocket.send_json({"show": "download_button_below"})
         await websocket.send_json({"enable": "download_button"})
+        await websocket.send_json({"enable": "download_button_below"})
         await websocket.send_json({"update_link": str(file_name)})
 
         job_listings_html = full_job_listings.to_html(
