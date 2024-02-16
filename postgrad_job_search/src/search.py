@@ -8,6 +8,23 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+default_keywords = [
+    "Data Analyst",
+    "Data Scientist",
+    "Statistician",
+    "Research Analyst",
+    "Research Associate",
+    "Policy Analyst",
+    "Data Engineer",
+    "Researcher	",
+    "Research Scientist",
+    "Research Engineer",
+    "Data Policy",
+    "Statistics",
+    "Engineer",
+    "Director of Government Client Services",
+    "Local Food Coordinator",
+]
 
 def match(job_title, l):
     for keyword in l:
@@ -85,9 +102,23 @@ async def stream_table(ws, full_job_listings):
         await ws.send_json({"update_table": job_listings_html})
 
 
+async def stream_keywords(ws):
+    if ws is not None:
+        await ws.send_json(
+            {"message": "No keywords found, switching to default keywords!"}
+        )
+        await ws.send_json({"message": ", ".join(default_keywords)})
+
+
 async def search(df, ws=None):
-    keywords = df.loc[:, "Keywords"].dropna().str.lower().to_list()
-    exclude = df.loc[:, "Exclude"].dropna().str.lower().to_list()
+    try:
+        keywords = df.loc[:, "Keywords"].dropna().str.lower().to_list()
+    except:
+        keywords = default_keywords
+    try:
+        exclude = df.loc[:, "Exclude"].dropna().str.lower().to_list()
+    except:
+        exclude = []
     df = df.loc[:, ["Company", "URL"]].drop_duplicates(subset=["Company", "URL"])
 
     N_PER_RUN = int(os.environ["N_PER_RUN"])
